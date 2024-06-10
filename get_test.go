@@ -1,11 +1,13 @@
-package main
+package poker
 
 import (
 	"encoding/json"
 	"fmt"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"reflect"
+	"strings"
 	"testing"
 )
 
@@ -26,6 +28,16 @@ func (s *StubPlayerStore) GetPlayerScore(name string) int {
 
 func (s *StubPlayerStore) RecordWin(name string) {
 	s.winCalls = append(s.winCalls, name)
+}
+
+type FileSystemPlayerStore struct {
+	database io.Reader
+}
+
+func (s *FileSystemPlayerStore) GetLeague() []Player {
+	var league []Player
+	json.NewDecoder(s.database).Decode(&league)
+	return league
 }
 
 func TestGETPlayers(t *testing.T) {
@@ -152,11 +164,38 @@ func TestLeague(t *testing.T) {
 	})
 }
 
+func TestFileSystemStore(t *testing.T) {
+	t.Run("league from reader", func(t *testing.T) {
+		database := strings.NewReader(`[
+			{"Name": "Cleo", "Wins": 10},
+			{"Name": "Chris", "Wins": 33}]`)
+
+		store := FileSystemPlayerStore{database}
+
+		got := store.GetLeague()
+
+		want := []Player{
+			{"Cleo", 10},
+			{"Chris", 33},
+		}
+
+		assertLeague(t, got, want)
+
+	})
+}
+
 // _____________
 func assertStatus(t testing.TB, got, want int) {
 	t.Helper()
 	if got != want {
 		t.Errorf("did not get correct status, got %d, want %d", got, want)
+	}
+}
+
+func assertLeague(t *testing.T, got []Player, want []Player) {
+	t.Helper()
+	if !reflect.DeepEqual(got, want) {
+		t.Errorf("did not get correct status, got %v, want %v", got, want)
 	}
 }
 

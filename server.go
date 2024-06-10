@@ -1,4 +1,4 @@
-package main
+package poker
 
 import (
 	"encoding/json"
@@ -65,5 +65,4 @@ func (p *PlayerServer) handlePlayers(w http.ResponseWriter, r *http.Request) {
 	case http.MethodGet:
 		p.ShowScore(w, player)
 	}
-
 }
