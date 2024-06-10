@@ -1,18 +1,20 @@
 package poker
 
 import (
-	"encoding/json"
-	"io"
 	"net/http"
 	"net/http/httptest"
-	"reflect"
 	"testing"
 )
 
 func TestRecordingWinsAndRetrievingThem(t *testing.T) {
+	database, cleanDatabase := createTempFile(t, `[]`)
+	defer cleanDatabase()
+	store, err := NewFileSystemPlayerStore(database)
 
-	server := NewPlayerServer(NewInMemoryPlayerStore())
-	player := "pepper"
+	assertNoError(t, err)
+
+	server := NewPlayerServer(store)
+	player := "Pepper"
 
 	server.ServeHTTP(httptest.NewRecorder(), newPostWinRequest(player))
 	server.ServeHTTP(httptest.NewRecorder(), newPostWinRequest(player))
@@ -28,32 +30,13 @@ func TestRecordingWinsAndRetrievingThem(t *testing.T) {
 
 	t.Run("get league", func(t *testing.T) {
 		response := httptest.NewRecorder()
-		request, _ := http.NewRequest(http.MethodGet, "/league/", nil)
-
-		server.ServeHTTP(
-			response,
-			request,
-		)
+		server.ServeHTTP(response, newLeagueRequest())
 		assertStatus(t, response.Code, http.StatusOK)
 
 		got := getLeagueFromResponse(t, response.Body)
 		want := []Player{
-			{"pepper", 3},
+			{"Pepper", 3},
 		}
-
-		if !reflect.DeepEqual(got, want) {
-			t.Errorf("got %v want %v", got, want)
-		}
+		assertLeague(t, got, want)
 	})
-}
-
-func getLeagueFromResponse(t testing.TB, body io.Reader) (league []Player) {
-	t.Helper()
-	err := json.NewDecoder(body).Decode(&league)
-
-	if err != nil {
-		t.Fatalf("Unable to parse response from server %q into slice of Player, '%v'", body, err)
-	}
-
-	return
 }
